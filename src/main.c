@@ -3,7 +3,7 @@
 
 //#define DEBUG_PRINT
 
-int display_matrix (int matrix[9][9][9])
+int display_matrix (int disp_status, int matrix[9][9][9])
 /*  Display the sudoku field
     in a 9x9 matrix*/
 {
@@ -16,7 +16,7 @@ int display_matrix (int matrix[9][9][9])
     int count_3=0;
     int count=0;
     int pos;
-    printf("Sudoku matrix:\n");
+
     for ( y = 0; y < 9; ++y )
     {
         printf("\n");
@@ -51,12 +51,14 @@ int display_matrix (int matrix[9][9][9])
         }
         printf(" \n");
     }
-    printf("\n");
-    printf("Matrix status:\n");
-    printf("  Not       :%d\n",count_0);
-    printf("  Possible  :%d\n",count_1);
-    printf("  Evaluation:%d\n",count_2);
-    printf("  Final     :%d\n",count_3);
+    if (disp_status == 1){
+        printf("\n");
+        printf("Matrix status:\n");
+        printf("  Not       :%d\n",count_0);
+        printf("  Possible  :%d\n",count_1);
+        printf("  Evaluation:%d\n",count_2);
+        printf("  Final     :%d\n",count_3);
+    }
     return 0;
 }
 
@@ -508,6 +510,14 @@ int display_candidate_status(int x, int y,int matrix[9][9][9]){
     return 0;
 }
 
+void clear_screen (void) {
+#ifdef LINUX
+    system("clear");
+#else
+    system("cls");
+#endif // LINUX
+}
+
 int analyitic_solver (int matrix[9][9][9]){
     /*  Determine the values of the matrix using the reduction
         of the number of possible candidates. */
@@ -518,13 +528,137 @@ int analyitic_solver (int matrix[9][9][9]){
         remove_candidates(&rc_count,matrix);
         pass_to_final(&pf_count,matrix);
 
-        system("cls");
-        display_matrix(matrix);
+        clear_screen();
+        printf("Analytic phase:\n");
+        display_matrix(1,matrix);
         printf("Candidates finalized: %d\n",rc_count);
         printf("Candidates removed: %d\n",pf_count);
 
     } while ((rc_count>0) || (pf_count>0));
 
+    return 0;
+}
+
+int input_test () {
+    while (1){
+    char string[2];
+    system("cls");
+    printf("Sudoku matrix input.\n");
+    printf("Select line (1-9):");
+    fgets ( string, 2, stdin );
+    printf("INPUT: %s",string);
+    getchar();  //DEBUG
+    printf("Midchar\n");
+    getchar();  //DEBUG
+    }
+    return 0;
+}
+
+int user_matrix_input (int *exit, int matrix[9][9][9]){
+    int done=0;
+    int ch;
+    int ch_cnt;
+    int in_error;
+    int row=0;
+    int select_line=1;
+    int buffer[9];
+    int i=0;
+    int j=0;
+    *exit=0;
+    while (done == 0){
+        clear_screen();
+        printf("Sudoku matrix input.\n");
+        display_matrix(0,matrix);
+        printf("r - run\n");
+        printf("e - exit\n");
+        /*  error display   */
+        if (in_error == 1) {
+            printf("Bad input. Please enter exactly one number 1-9.\n");
+        } else if (in_error == 2) {
+            printf("Bad input. Please enter exactly 9 numbers 0-9.\n");
+        } else if (in_error == 3) {
+            printf("Bad input. Incorrect number of inputs.\n");
+        }
+        /* display selected screen  */
+        if (select_line==1) {
+            printf("Select line (1-9) and hit Enter:");
+        } else if (select_line==0) {
+            printf("Enter 9 numbers for row %d and hit Enter",row);
+            printf("(1-9) - set numbers, 0 - missing value\n");
+            printf("Example: 010050230 :");
+        }
+        /*  store first nine inputs to the array    */
+        ch_cnt = 0;
+        in_error = 0;
+        do
+        {
+            ch = fgetc(stdin);
+            /*  if new line pass the storing    */
+            if (ch == '\n'){
+                continue;
+            }
+            else if (ch_cnt < 9){
+                buffer[ch_cnt]=ch;
+            }
+            ch_cnt++;
+        } while (ch != '\n');
+
+        /*  if 1 input character    */
+        if (ch_cnt==1){
+            /*  if exit selected */
+            if (buffer[0]=='e'){
+                *exit=1;
+                break;
+            /*  if run selected */
+            } else if (buffer[0]=='r'){
+                break;
+                done=1;
+            /* if row selection, character should be number 1-9    */
+            } else if ((select_line==1) && (buffer[0]<='9') && (buffer[0]>'0')) {
+                row=buffer[0]-'0';
+                select_line=0;
+            /* otherwise report error   */
+            } else {
+                in_error=1;
+            }
+        /*  if 9 input characters   */
+        } else if (ch_cnt==9){
+            if (select_line==0){
+                /*  check if all characters 0-9 */
+                for ( i = 0; i < 9; ++i ){
+                    if (!(buffer[i] <= '9') && (buffer[i] >= '0')) {
+                        in_error=2;
+                        break;
+                    }
+                }
+                /*  if characters ok input them to the matrix   */
+                if (in_error==0){
+                    for ( i = 0; i < 9; ++i ){
+                        /*  if input is a valid final number  */
+                        if (buffer[i]>'0'){
+                            /*  scan trough all potential number candidates for this position    */
+                            for ( j = 0; j < 9; ++j ){
+                                if (j==(buffer[i]-'0'-1)){
+                                    /*  set selected number to final    */
+                                    matrix[i][row-1][j]=3;
+                                } else {
+                                    /*  and the rest to not candidate   */
+                                    matrix[i][row-1][j]=0;
+                                }
+                            }
+                        }
+                    }
+                    select_line=1;
+                }
+            } else {
+                in_error=3;
+            }
+        /*  if other number of inputs   */
+        } else {
+            in_error=3;
+        }
+
+    }
     return 0;
 }
 
@@ -536,13 +670,21 @@ int main()
         2 - evaluating candidate,
         3 - final candidate */
     int matrix [9][9][9];
+    int exit;
 
     set_const_matrix(1,matrix);
+
+//    input_test();
+
+    user_matrix_input(&exit,matrix);
+    if (exit){
+        return 0;
+    }
 //    finished_correct_matrix(matrix);
 //    display_matrix(matrix);
 //        getchar();
-    unfinished_solvable_matrix(matrix);
-    display_matrix(matrix);
+//    unfinished_solvable_matrix(matrix);
+//    display_matrix(matrix);
 
     check_matrix(1,matrix);
 
