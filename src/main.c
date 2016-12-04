@@ -447,6 +447,143 @@ int remove_candidates (int *cnt, int matrix[9][9][9]){
     return error;
 }
 
+int single_find_check_row (int *stat, int column, int row, int value,  int matrix[9][9][9]){
+    int i=0;
+    int check[9];
+    int status=0;
+    /*  scan the row for selected value */
+    for ( i = 0; i < 9; ++i ){
+        if (matrix[i][row][value]==1){
+            check[i]=1;
+        } else {
+            check[i]=0;
+        }
+    }
+    /*  if selected value is the only one in a row, set it as final
+        and the other possible values on this position as not */
+    if (sum(9,check)==1){
+        for ( i = 0; i < 9; ++i ){
+            if (i==value){
+                matrix[column][row][i]=3;
+            } else {
+                matrix[column][row][i]=0;
+            }
+        }
+        status=1;
+    }
+    *stat=status;
+    return 0;
+}
+
+int single_find_check_column (int *stat, int column, int row, int value,  int matrix[9][9][9]){
+    int i=0;
+    int check[9];
+    int status=0;
+    /*  scan the column for selected value */
+    for ( i = 0; i < 9; ++i ){
+        if (matrix[column][i][value]==1){
+            check[i]=1;
+        } else {
+            check[i]=0;
+        }
+    }
+    /*  if selected value is the only one in a column, set it as final
+        and the other possible values on this position as not */
+    if (sum(9,check)==1){
+        for ( i = 0; i < 9; ++i ){
+            if (i==value){
+                matrix[column][row][i]=3;
+            } else {
+                matrix[column][row][i]=0;
+            }
+        }
+        status=1;
+    }
+    *stat=status;
+    return 0;
+}
+
+int single_find_check_square (int *stat, int column, int row, int value,  int matrix[9][9][9]){
+    int i=0;
+    int check[9];
+    int status=0;
+    /*  scan the square for selected value */
+    for ( i = 0; i < 9; ++i ){
+        /*  use modulo to determine the positions in a row (0,1,2)
+            and integer division to determine the position in the column (0,1,2)
+            For offsets of the square use the same operations on the provided position
+            and multiplying it with 3   */
+        if (matrix[(i%3)+((column/3)*3)][(i/3)+((row/3)*3)][value]==1){
+            check[i]=1;
+        } else {
+            check[i]=0;
+        }
+    }
+    /*  if selected value is the only one in a square, set it as final
+        and the other possible values on this position as not */
+    if (sum(9,check)==1){
+        for ( i = 0; i < 9; ++i ){
+            if (i==value){
+                matrix[column][row][i]=3;
+            } else {
+                matrix[column][row][i]=0;
+            }
+        }
+        status=1;
+    }
+    *stat=status;
+    return 0;
+}
+
+int single_find (int *cnt, int matrix[9][9][9]){
+/*  Check if a row, column or square has only one possible
+    position for the selected candidate and change it to final
+    while the others become not candidates  */
+    int x=0;
+    int y=0;
+    int z=0;
+    int count=0;
+    int status=0;
+
+    /*  check for all positions */
+    for ( y = 0; y < 9; ++y )
+    {
+        for ( x = 0; x < 9; ++x ){
+            /*  for each possible value */
+            for ( z = 0; z < 9; ++z ){
+                /*  if candidate is status not or final - ignore */
+                if ((matrix[x][y][z]==0) || (matrix[x][y][z]==3)){
+                    continue;
+                } else {
+                    /*  check if selected candidate only in selected row    */
+                    single_find_check_row(&status, x, y, z, matrix);
+                    if (status==1){
+                        status=0;
+                        count++;
+                        break;
+                    }
+                    /*  check if only in column */
+                    single_find_check_column(&status, x, y, z, matrix);
+                    if (status==1){
+                        status=0;
+                        count++;
+                        break;
+                    }
+                    /*  check if only in square */
+                    single_find_check_square(&status, x, y, z, matrix);
+                    if (status==1){
+                        status=0;
+                        count++;
+
+                    }
+                }
+            }
+        }
+    }
+    *cnt=count;
+    return 0;
+}
+
 int pass_to_final (int *cnt, int matrix[9][9][9]){
 /*  Sweeps one time trough all the fields in the matrix
     and check if and candidates can be transformed from
@@ -523,34 +660,22 @@ int analyitic_solver (int matrix[9][9][9]){
         of the number of possible candidates. */
     int rc_count;
     int pf_count;
+    int sf_count;
     do {
 
         remove_candidates(&rc_count,matrix);
         pass_to_final(&pf_count,matrix);
+        single_find (&sf_count,matrix);
 
         clear_screen();
         printf("Analytic phase:\n");
         display_matrix(1,matrix);
         printf("Candidates finalized: %d\n",rc_count);
         printf("Candidates removed: %d\n",pf_count);
+        printf("Candidates singled: %d\n",sf_count);
 
-    } while ((rc_count>0) || (pf_count>0));
+    } while ((rc_count>0) || (pf_count>0) || (sf_count>0));
 
-    return 0;
-}
-
-int input_test () {
-    while (1){
-    char string[2];
-    system("cls");
-    printf("Sudoku matrix input.\n");
-    printf("Select line (1-9):");
-    fgets ( string, 2, stdin );
-    printf("INPUT: %s",string);
-    getchar();  //DEBUG
-    printf("Midchar\n");
-    getchar();  //DEBUG
-    }
     return 0;
 }
 
@@ -673,8 +798,6 @@ int main()
     int exit;
 
     set_const_matrix(1,matrix);
-
-//    input_test();
 
     user_matrix_input(&exit,matrix);
     if (exit){
